@@ -1,0 +1,79 @@
+services:
+  # 1. MongoDB Database Service
+  mongodb:
+    image: mongo:latest
+    container_name: mern-mongodb
+    ports:
+      - "27017:27017"
+    networks:
+      - backend-network
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: securepassword
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s 
+
+
+  # 2. Node.js Express Backend Service
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: mern-backend
+    ports:
+      - "4000:4000"
+    networks:
+      - backend-network
+      - frontend-network
+    environment:
+      - MONGODB_URI=mongodb://admin:securepassword@mongodb:27017/food_db?authSource=admin
+      - PORT=4000
+      - JWT_SECRET=YGvykuiR0te7HPbBt0rESBS2wvZLYQSxl9oLOQLEdtr
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+
+  # 3. Vite Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: mern-frontend
+    ports:
+      - "5173:80"
+    networks:
+      - frontend-network
+    depends_on:
+      - backend
+
+
+  # 4. Admin Page
+  admin:
+    build:
+      context: ./admin
+      dockerfile: Dockerfile
+    container_name: mern-admin
+    ports:
+      - "5174:80"
+    networks:
+      - frontend-network
+    depends_on:
+      - backend
+
+# Persistent volume so you don't lose data when the database container stops
+volumes:
+  mongo-data:  # To check the volume created check, cmd [docker volume ls]
+
+networks:
+  frontend-network:
+    driver: bridge
+  backend-network:
+    driver: bridge
+
